@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🕹️ Playing — RetroArcade</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      color: #e0e0ff;
+      font-family: 'Press Start 2P', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .topbar {
+      background: #12121a;
+      border-bottom: 2px solid #00f5ff;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .topbar a {
+      color: #00f5ff;
+      text-decoration: none;
+      font-size: 9px;
+    }
+    .topbar a:hover { color: #fff; }
+    #game-title { font-size: 10px; color: #fff; }
+    #game { width: 100%; flex: 1; }
+    .game-wrap { flex: 1; display: flex; flex-direction: column; background: #000; }
+    .notice {
+      text-align: center;
+      padding: 8px;
+      font-size: 8px;
+      color: #4040a0;
+      background: #080810;
+    }
+  </style>
+  <!-- EmulatorJS configuration — edit these for each game page -->
+  <script>
+    // Read ROM path and core from URL params
+    const params = new URLSearchParams(location.search);
+    window.EJS_player = '#game';
+    window.EJS_core = params.get('core') || 'nes';
+    window.EJS_gameUrl = params.get('rom') || '';
+    window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+    window.EJS_startOnLoaded = true;
+    window.EJS_color = '#00f5ff';
+  </script>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html">← BACK TO ARCADE</a>
+    <span id="game-title">🕹️ RETRO ARCADE</span>
+  </div>
+  <div class="game-wrap">
+    <div id="game"></div>
+  </div>
+  <div class="notice">⚠️ ONLY PLAY ROMS OF GAMES YOU LEGALLY OWN</div>
+  <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+</body>
+</html>

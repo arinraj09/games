@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🕹️ RetroArcade — Classic Games Online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --panel: #12121a;
+      --border: #2a2a3e;
+      --neon-blue: #00f5ff;
+      --neon-pink: #ff006e;
+      --neon-green: #39ff14;
+      --neon-yellow: #ffe600;
+      --neon-purple: #bf00ff;
+      --text: #e0e0ff;
+      --dim: #6060a0;
+      --scanline: rgba(0,0,0,0.15);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'VT323', monospace;
+      font-size: 20px;
+      min-height: 100vh;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* Custom cursor */
+    .cursor {
+      width: 16px; height: 16px;
+      background: var(--neon-green);
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      clip-path: polygon(0 0, 100% 50%, 0 100%);
+      transition: transform 0.1s;
+      transform-origin: left center;
+    }
+    .cursor.clicking { transform: scale(0.7); }
+
+    /* Scanline overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        var(--scanline) 0px, var(--scanline) 1px,
+        transparent 1px, transparent 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* CRT vignette */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.7) 100%);
+      pointer-events: none;
+      z-index: 99;
+    }
+
+    /* ---- HEADER ---- */
+    header {
+      text-align: center;
+      padding: 40px 20px 20px;
+      position: relative;
+    }
+
+    .marquee-bar {
+      background: var(--neon-pink);
+      color: #000;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      padding: 8px 0;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .marquee-bar span {
+      display: inline-block;
+      animation: marquee 20s linear infinite;
+    }
+    @keyframes marquee {
+      from { transform: translateX(100vw); }
+      to { transform: translateX(-100%); }
+    }
+
+    .logo {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(22px, 5vw, 48px);
+      line-height: 1.4;
+      margin: 30px 0 10px;
+      text-shadow:
+        0 0 10px var(--neon-blue),
+        0 0 20px var(--neon-blue),
+        0 0 40px var(--neon-blue),
+        4px 4px 0 var(--neon-pink);
+      color: #fff;
+      animation: flicker 4s infinite;
+    }
+    @keyframes flicker {
+      0%,95%,97%,100% { opacity: 1; }
+      96% { opacity: 0.7; }
+    }
+
+    .insert-coin {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      color: var(--neon-yellow);
+      animation: blink 1s step-end infinite;
+      margin-bottom: 30px;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ---- STARS BG ---- */
+    .stars {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      overflow: hidden;
+    }
+    .star {
+      position: absolute;
+      background: #fff;
+      border-radius: 50%;
+      animation: twinkle var(--d) ease-in-out infinite;
+    }
+    @keyframes twinkle {
+      0%,100% { opacity: var(--o); }
+      50% { opacity: 0.1; }
+    }
+
+    /* ---- CONSOLE TABS ---- */
+    .console-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      padding: 0 20px;
+      margin-bottom: 30px;
+    }
+    .tab-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      padding: 10px 16px;
+      background: var(--panel);
+      border: 2px solid var(--border);
+      color: var(--dim);
+      cursor: none;
+      transition: all 0.15s;
+      text-transform: uppercase;
+    }
+    .tab-btn:hover, .tab-btn.active {
+      border-color: var(--neon-blue);
+      color: var(--neon-blue);
+      text-shadow: 0 0 8px var(--neon-blue);
+      box-shadow: 0 0 12px rgba(0,245,255,0.3), inset 0 0 12px rgba(0,245,255,0.05);
+    }
+    .tab-btn.active {
+      background: rgba(0,245,255,0.08);
+    }
+
+    /* ---- GAME GRID ---- */
+    .section { display: none; }
+    .section.active { display: block; }
+
+    .section-header {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 13px;
+      color: var(--neon-green);
+      text-align: center;
+      margin: 0 0 24px;
+      text-shadow: 0 0 10px var(--neon-green);
+      letter-spacing: 2px;
+    }
+
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 20px;
+      padding: 0 30px 40px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .game-card {
+      background: var(--panel);
+      border: 2px solid var(--border);
+      padding: 0;
+      cursor: none;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .game-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 60%, rgba(255,255,255,0.03));
+      pointer-events: none;
+    }
+    .game-card:hover {
+      border-color: var(--neon-pink);
+      box-shadow: 0 0 20px rgba(255,0,110,0.4), 0 0 40px rgba(255,0,110,0.1);
+      transform: translateY(-4px);
+    }
+    .game-card:hover .game-thumb { filter: brightness(1.2) saturate(1.3); }
+
+    .game-thumb {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      display: block;
+      image-rendering: pixelated;
+      transition: filter 0.2s;
+    }
+
+    .game-thumb-placeholder {
+      width: 100%;
+      height: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 60px;
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+    }
+
+    .game-info {
+      padding: 16px;
+    }
+
+    .game-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: #fff;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .game-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .badge {
+      font-size: 13px;
+      padding: 2px 8px;
+      border: 1px solid;
+    }
+    .badge-console { border-color: var(--neon-blue); color: var(--neon-blue); }
+    .badge-free { border-color: var(--neon-green); color: var(--neon-green); }
+    .badge-rom { border-color: var(--neon-yellow); color: var(--neon-yellow); }
+
+    .play-btn {
+      display: block;
+      width: 100%;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      padding: 10px;
+      background: transparent;
+      border: 2px solid var(--neon-green);
+      color: var(--neon-green);
+      text-align: center;
+      cursor: none;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .play-btn:hover {
+      background: var(--neon-green);
+      color: #000;
+      box-shadow: 0 0 20px var(--neon-green);
+    }
+    .play-btn.needs-rom {
+      border-color: var(--neon-yellow);
+      color: var(--neon-yellow);
+    }
+    .play-btn.needs-rom:hover {
+      background: var(--neon-yellow);
+      color: #000;
+      box-shadow: 0 0 20px var(--neon-yellow);
+    }
+
+    /* ---- EMULATOR MODAL ---- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal-box {
+      background: var(--panel);
+      border: 3px solid var(--neon-blue);
+      box-shadow: 0 0 40px rgba(0,245,255,0.3);
+      width: min(900px, 98vw);
+      max-height: 95vh;
+      overflow: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 2px solid var(--border);
+      background: rgba(0,245,255,0.05);
+    }
+
+    .modal-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      color: var(--neon-blue);
+    }
+
+    .close-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      background: none;
+      border: 2px solid var(--neon-pink);
+      color: var(--neon-pink);
+      padding: 6px 12px;
+      cursor: none;
+    }
+    .close-btn:hover { background: var(--neon-pink); color: #000; }
+
+    #emulator-container {
+      width: 100%;
+      min-height: 400px;
+    }
+
+    /* ROM upload modal */
+    .rom-upload-area {
+      padding: 40px;
+      text-align: center;
+    }
+    .rom-instructions {
+      font-size: 18px;
+      line-height: 1.8;
+      color: var(--text);
+      margin-bottom: 24px;
+    }
+    .rom-instructions strong {
+      color: var(--neon-yellow);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+    }
+    .rom-drop-zone {
+      border: 3px dashed var(--neon-yellow);
+      padding: 40px;
+      margin: 20px 0;
+      transition: all 0.2s;
+    }
+    .rom-drop-zone.dragover {
+      background: rgba(255,230,0,0.1);
+      border-color: var(--neon-green);
+    }
+    .rom-drop-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      color: var(--neon-yellow);
+      display: block;
+      margin-bottom: 16px;
+    }
+    #rom-file-input { display: none; }
+    .rom-select-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      padding: 12px 24px;
+      background: none;
+      border: 2px solid var(--neon-yellow);
+      color: var(--neon-yellow);
+      cursor: none;
+      transition: all 0.15s;
+    }
+    .rom-select-btn:hover {
+      background: var(--neon-yellow);
+      color: #000;
+    }
+
+    /* ---- FOOTER ---- */
+    footer {
+      text-align: center;
+      padding: 30px 20px;
+      border-top: 1px solid var(--border);
+      font-size: 16px;
+      color: var(--dim);
+      line-height: 2;
+    }
+    footer a { color: var(--neon-blue); text-decoration: none; }
+
+    /* ---- SETUP GUIDE ---- */
+    .setup-guide {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 30px 40px;
+    }
+    .setup-step {
+      border: 1px solid var(--border);
+      padding: 20px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .step-num {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 20px;
+      color: var(--neon-pink);
+      position: absolute;
+      top: -14px;
+      left: 16px;
+      background: var(--bg);
+      padding: 0 8px;
+    }
+    .setup-step h3 {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: var(--neon-green);
+      margin-bottom: 12px;
+    }
+    .setup-step p, .setup-step li {
+      font-size: 17px;
+      line-height: 1.7;
+      color: var(--text);
+    }
+    .setup-step ul { margin-left: 20px; }
+    .setup-step code {
+      background: rgba(0,245,255,0.1);
+      color: var(--neon-blue);
+      padding: 2px 8px;
+      font-size: 16px;
+    }
+
+    /* scroll bar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--neon-blue); }
+  </style>
+</head>
+<body>
+
+  <div class="cursor" id="cursor"></div>
+  <div class="stars" id="stars"></div>
+
+  <!-- MARQUEE -->
+  <div class="marquee-bar">
+    <span>★ INSERT COIN TO PLAY ★ RETRO ARCADE ★ NES • SNES • GBA • GENESIS • N64 ★ FREE TO PLAY ★ NO DOWNLOAD NEEDED ★ CLASSIC GAMES ONLINE ★ LEVEL UP ★ INSERT COIN TO PLAY ★</span>
+  </div>
+
+  <header>
+    <div class="logo">🕹️ RETRO ARCADE</div>
+    <div class="insert-coin">— INSERT COIN —</div>
+  </header>
+
+  <!-- TABS -->
+  <div class="console-tabs">
+    <button class="tab-btn active" onclick="showSection('free-games')">🆓 FREE GAMES</button>
+    <button class="tab-btn" onclick="showSection('nes')">NES</button>
+    <button class="tab-btn" onclick="showSection('snes')">SNES</button>
+    <button class="tab-btn" onclick="showSection('gba')">GAME BOY</button>
+    <button class="tab-btn" onclick="showSection('genesis')">GENESIS</button>
+    <button class="tab-btn" onclick="showSection('setup')">⚙️ SETUP GUIDE</button>
+  </div>
+
+  <!-- FREE GAMES SECTION -->
+  <div class="section active" id="free-games">
+    <div class="section-header">▶ FREE &amp; LEGAL GAMES (PLAY NOW)</div>
+    <div class="games-grid">
+
+      <div class="game-card">
+        <div class="game-thumb-placeholder">🍄</div>
+        <div class="game-info">
+          <div class="game-title">SUPER MARIO BROS (ARCHIVE)</div>
+          <div class="game-meta">
+            <span class="badge badge-console">NES</span>
+            <span class="badge badge-free">ARCHIVE.ORG</span>
+          </div>
+          <a class="play-btn" href="https://archive.org/details/SuperMarioBros_nes" target="_blank" rel="noopener">▶ PLAY ON ARCHIVE.ORG</a>
+        </div>
+      </div>
+
+      <div class="game-card">
+        <div class="game-thumb-placeholder">🐸</div>
+        <div class="game-info">
+          <div class="game-title">FROGGER (ARCHIVE)</div>
+          <div class="game-meta">
+            <span class="badge badge-console">ARCADE</span>
+            <span class="badge badge-free">ARCHIVE.ORG</span>
+          </div>
+          <a class="play-btn" href="https://archive.org/details/arcade_frogger" target="_blank" rel="noopener">▶ PLAY ON ARCHIVE.ORG</a>
+        </div>
+      </div>
+
+      <div class="game-card">
+        <div class="game-thumb-placeholder">🚀</div>
+        <div class="game-info">
+          <div class="game-title">GALAGA (ARCHIVE)</div>
+          <div class="game-meta">
+            <span class="badge badge-console">ARCADE</span>
+            <span class="badge badge-free">ARCHIVE.ORG</span>
+          </div>
+          <a class="play-btn" href="https://archive.org/details/arcade_galaga" target="_blank" rel="noopener">▶ PLAY ON ARCHIVE.ORG</a>
+        </div>
+      </div>
+
+      <div class="game-card">
+        <div class="game-thumb-placeholder">👾</div>
+        <div class="game-info">
+          <div class="game-title">SPACE INVADERS (ARCHIVE)</div>
+          <div class="game-meta">
+            <span class="badge badge-console">ARCADE</span>
+            <span class="badge badge-free">ARCHIVE.ORG</span>
+          </div>
+          <a class="play-btn" href="https://archive.org/details/arcade_invaders" target="_blank" rel="noopener">▶ PLAY ON ARCHIVE.ORG</a>
+        </div>
+      </div>
+
+      <div class="game-card">
+        <div class="game-thumb-placeholder">🔴</div>
+        <div class="game-info">
+          <div class="game-title">PAC-MAN (ARCHIVE)</div>
+          <div class="game-meta">
+            <span class="badge badge-console">ARCADE</span>
+            <span class="badge badge-free">ARCHIVE.ORG</span>
+          </div>
+          <a class="play-btn" href="https://archive.org/details/arcade_puckman" target="_blank" rel="noopener">▶ PLAY ON ARCHIVE.ORG</a>
+        </div>
+      </div>
+
+      <div class="game-card">
+        <div class="game-thumb-placeholder">🏓</div>
+        <div class="game-info">
+          <div class="game-title">BÖBL — NES HOMEBREW</div>
+          <div class="game-meta">
+            <span class="badge badge-console">NES</span>
+            <span class="badge badge-free">FREE / OPEN</span>
+          </div>
+          <a class="play-btn" href="https://morphcat.itch.io/bobl" target="_blank" rel="noopener">▶ PLAY ON ITCH.IO</a>
+        </div>
+      </div>
+
+      <div class="game-card">
+        <div class="game-thumb-placeholder">🎮</div>
+        <div class="game-info">
+          <div class="game-title">FROM BELOW — NES HOMEBREW</div>
+          <div class="game-meta">
+            <span class="badge badge-console">NES</span>
+            <span class="badge badge-free">FREE / OPEN</span>
+          </div>
+          <a class="play-btn" href="https://mhughson.itch.io/from-below" target="_blank" rel="noopener">▶ PLAY ON ITCH.IO</a>
+        </div>
+      </div>
+
+      <div class="game-card">
+        <div class="game-thumb-placeholder">🌊</div>
+        <div class="game-info">
+          <div class="game-title">FULL NES LIBRARY (ARCHIVE.ORG)</div>
+          <div class="game-meta">
+            <span class="badge badge-console">NES</span>
+            <span class="badge badge-free">ARCHIVE.ORG</span>
+          </div>
+          <a class="play-btn" href="https://archive.org/details/NESLibrary" target="_blank" rel="noopener">▶ BROWSE &amp; PLAY</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- NES SECTION -->
+  <div class="section" id="nes">
+    <div class="section-header">▶ NES EMULATOR — LOAD YOUR ROM</div>
+    <div class="games-grid">
+      <div class="game-card" onclick="openRomUploader('nes', 'NES Game')">
+        <div class="game-thumb-placeholder">🍄</div>
+        <div class="game-info">
+          <div class="game-title">LOAD ANY NES ROM</div>
+          <div class="game-meta"><span class="badge badge-console">NES</span><span class="badge badge-rom">.NES FILE</span></div>
+          <div class="play-btn needs-rom">📁 LOAD YOUR ROM FILE</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center; padding: 0 30px 30px; font-size:16px; color: var(--dim); line-height:1.9;">
+      Drop a <strong style="color:var(--neon-yellow)">.nes</strong> ROM file to play it right here in your browser.<br>
+      Works with any NES .nes ROM. Your file stays local — nothing is uploaded.<br>
+      <span style="color:var(--neon-blue)">Archive.org has a legal NES library you can browse →</span>
+      <a href="https://archive.org/details/NESLibrary" target="_blank" style="color:var(--neon-green); display:block; margin-top:8px;">archive.org/details/NESLibrary</a>
+    </div>
+  </div>
+
+  <!-- SNES SECTION -->
+  <div class="section" id="snes">
+    <div class="section-header">▶ SNES EMULATOR — LOAD YOUR ROM</div>
+    <div class="games-grid">
+      <div class="game-card" onclick="openRomUploader('snes', 'SNES Game')">
+        <div class="game-thumb-placeholder">🎮</div>
+        <div class="game-info">
+          <div class="game-title">LOAD ANY SNES ROM</div>
+          <div class="game-meta"><span class="badge badge-console">SNES</span><span class="badge badge-rom">.SMC / .SFC</span></div>
+          <div class="play-btn needs-rom">📁 LOAD YOUR ROM FILE</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center; padding: 0 30px 30px; font-size:16px; color: var(--dim); line-height:1.9;">
+      Drop a <strong style="color:var(--neon-yellow)">.smc or .sfc</strong> ROM file to play it.<br>
+      Only play ROMs of games you legally own.
+    </div>
+  </div>
+
+  <!-- GBA SECTION -->
+  <div class="section" id="gba">
+    <div class="section-header">▶ GAME BOY / GBA EMULATOR</div>
+    <div class="games-grid">
+      <div class="game-card" onclick="openRomUploader('gb', 'Game Boy Game')">
+        <div class="game-thumb-placeholder">🎮</div>
+        <div class="game-info">
+          <div class="game-title">GAME BOY / GBC ROM</div>
+          <div class="game-meta"><span class="badge badge-console">GB/GBC</span><span class="badge badge-rom">.GB / .GBC</span></div>
+          <div class="play-btn needs-rom">📁 LOAD YOUR ROM FILE</div>
+        </div>
+      </div>
+      <div class="game-card" onclick="openRomUploader('gba', 'GBA Game')">
+        <div class="game-thumb-placeholder">🕹️</div>
+        <div class="game-info">
+          <div class="game-title">GAME BOY ADVANCE ROM</div>
+          <div class="game-meta"><span class="badge badge-console">GBA</span><span class="badge badge-rom">.GBA FILE</span></div>
+          <div class="play-btn needs-rom">📁 LOAD YOUR ROM FILE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GENESIS SECTION -->
+  <div class="section" id="genesis">
+    <div class="section-header">▶ SEGA GENESIS EMULATOR</div>
+    <div class="games-grid">
+      <div class="game-card" onclick="openRomUploader('segaMD', 'Sega Genesis Game')">
+        <div class="game-thumb-placeholder">🦔</div>
+        <div class="game-info">
+          <div class="game-title">LOAD ANY GENESIS ROM</div>
+          <div class="game-meta"><span class="badge badge-console">GENESIS</span><span class="badge badge-rom">.MD / .BIN</span></div>
+          <div class="play-btn needs-rom">📁 LOAD YOUR ROM FILE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETUP GUIDE SECTION -->
+  <div class="section" id="setup">
+    <div class="section-header">▶ SETUP GUIDE — HOST ON GITHUB PAGES</div>
+    <div class="setup-guide">
+
+      <div class="setup-step">
+        <div class="step-num">01</div>
+        <h3>FORK OR CLONE THIS REPO</h3>
+        <p>Go to GitHub.com → New Repository → Name it <code>retro-arcade</code> (or anything you like). Upload all the files from this project to your repo.</p>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">02</div>
+        <h3>ENABLE GITHUB PAGES</h3>
+        <p>In your repo: Settings → Pages → Source → Deploy from branch → select <code>main</code> branch → <code>/ (root)</code> → Save. Your site goes live at <code>https://yourusername.github.io/retro-arcade</code></p>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">03</div>
+        <h3>ADD YOUR OWN ROMS (OPTIONAL)</h3>
+        <p>To embed games directly (only ROMs you legally own), add them to a <code>/roms/</code> folder and update the game cards in <code>index.html</code> to point to the ROM path. The EmulatorJS player will load them automatically.</p>
+        <ul>
+          <li>NES: <code>/roms/nes/mygame.nes</code></li>
+          <li>SNES: <code>/roms/snes/mygame.smc</code></li>
+          <li>GBA: <code>/roms/gba/mygame.gba</code></li>
+        </ul>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">04</div>
+        <h3>LEGAL FREE GAME SOURCES</h3>
+        <ul>
+          <li><a href="https://archive.org/details/classicpcgames" target="_blank" style="color:var(--neon-blue)">archive.org</a> — huge legal library with browser play built in</li>
+          <li><a href="https://itch.io/games/tag-nes-rom/tag-free" target="_blank" style="color:var(--neon-blue)">itch.io homebrew NES ROMs</a> — original games, freely released</li>
+          <li><a href="https://www.nesworld.com/homebrew.php" target="_blank" style="color:var(--neon-blue)">NESWorld Homebrew</a> — public domain and freeware NES games</li>
+        </ul>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">05</div>
+        <h3>EMULATORJS CDN SETUP</h3>
+        <p>This site uses <a href="https://emulatorjs.org" target="_blank" style="color:var(--neon-blue)">EmulatorJS</a> via CDN. For individual game pages, create a file like <code>play.html</code> using the template in <code>/player/index.html</code>. No server needed — it runs 100% in the browser.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ROM UPLOAD MODAL -->
+  <div class="modal-overlay" id="emulator-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">🕹️ LOADING GAME...</span>
+        <button class="close-btn" onclick="closeModal()">✕ CLOSE</button>
+      </div>
+      <div id="emulator-container">
+        <!-- EmulatorJS loads here -->
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>🕹️ RETRO ARCADE — POWERED BY <a href="https://emulatorjs.org" target="_blank">EMULATORJS</a> &amp; <a href="https://archive.org" target="_blank">ARCHIVE.ORG</a></div>
+    <div style="margin-top:8px;">HOSTED FREE ON <a href="https://pages.github.com" target="_blank">GITHUB PAGES</a> ★ OPEN SOURCE</div>
+    <div style="margin-top:12px; font-size:14px;">⚠️ ONLY PLAY ROMS OF GAMES YOU LEGALLY OWN. THIS SITE DOES NOT HOST OR DISTRIBUTE COPYRIGHTED ROMS.</div>
+  </footer>
+
+  <script>
+    // ---- CURSOR ----
+    const cursor = document.getElementById('cursor');
+    document.addEventListener('mousemove', e => {
+      cursor.style.left = e.clientX + 'px';
+      cursor.style.top = e.clientY - 8 + 'px';
+    });
+    document.addEventListener('mousedown', () => cursor.classList.add('clicking'));
+    document.addEventListener('mouseup', () => cursor.classList.remove('clicking'));
+
+    // ---- STARS ----
+    const starsEl = document.getElementById('stars');
+    for (let i = 0; i < 120; i++) {
+      const s = document.createElement('div');
+      s.className = 'star';
+      const size = Math.random() * 2.5 + 0.5;
+      s.style.cssText = `
+        width:${size}px; height:${size}px;
+        left:${Math.random()*100}%;
+        top:${Math.random()*100}%;
+        --d:${2+Math.random()*4}s;
+        --o:${0.3+Math.random()*0.7};
+        animation-delay:${Math.random()*4}s;
+      `;
+      starsEl.appendChild(s);
+    }
+
+    // ---- TABS ----
+    function showSection(id) {
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    // ---- EMULATOR MODAL ----
+    let currentCore = null;
+
+    function openRomUploader(core, name) {
+      currentCore = core;
+      document.getElementById('modal-title').textContent = '🕹️ ' + name.toUpperCase() + ' — SELECT ROM FILE';
+      document.getElementById('emulator-container').innerHTML = `
+        <div class="rom-upload-area">
+          <div class="rom-instructions">
+            Load a ROM file from your computer to play it in your browser.<br>
+            <strong>YOUR FILE STAYS LOCAL — NOTHING IS UPLOADED.</strong><br><br>
+            Only use ROMs of games you legally own.
+          </div>
+          <div class="rom-drop-zone" id="drop-zone">
+            <span class="rom-drop-label">DROP ROM FILE HERE</span>
+            <input type="file" id="rom-file-input" accept=".nes,.smc,.sfc,.gba,.gb,.gbc,.md,.bin,.n64,.z64,.v64,.sms,.gg">
+            <button class="rom-select-btn" onclick="document.getElementById('rom-file-input').click()">📁 BROWSE FILES</button>
+          </div>
+          <div id="loading-msg" style="display:none; text-align:center; padding:20px;">
+            <div style="font-family:'Press Start 2P',monospace; font-size:12px; color:var(--neon-green); animation:blink 0.5s step-end infinite;">LOADING ROM...</div>
+          </div>
+        </div>
+      `;
+      setupDropZone();
+      document.getElementById('emulator-modal').classList.add('open');
+    }
+
+    function setupDropZone() {
+      const dz = document.getElementById('drop-zone');
+      const fi = document.getElementById('rom-file-input');
+      if (!dz || !fi) return;
+
+      dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+      dz.addEventListener('drop', e => {
+        e.preventDefault();
+        dz.classList.remove('dragover');
+        if (e.dataTransfer.files[0]) loadRomFile(e.dataTransfer.files[0]);
+      });
+      fi.addEventListener('change', () => { if (fi.files[0]) loadRomFile(fi.files[0]); });
+    }
+
+    function loadRomFile(file) {
+      document.getElementById('loading-msg').style.display = 'block';
+      document.getElementById('drop-zone').style.display = 'none';
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        const blob = new Blob([e.target.result]);
+        const url = URL.createObjectURL(blob);
+        launchEmulator(url, currentCore, file.name);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function launchEmulator(romUrl, core, romName) {
+      document.getElementById('modal-title').textContent = '▶ ' + romName.toUpperCase();
+      document.getElementById('emulator-container').innerHTML = `
+        <div id="game-wrapper" style="width:100%; background:#000; position:relative; min-height:480px;">
+          <div id="game" style="width:100%; height:480px;"></div>
+        </div>
+      `;
+
+      // Load EmulatorJS from CDN
+      window.EJS_player = '#game';
+      window.EJS_core = core;
+      window.EJS_gameUrl = romUrl;
+      window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+      window.EJS_startOnLoaded = true;
+      window.EJS_color = '#00f5ff';
+
+      const script = document.createElement('script');
+      script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+      document.head.appendChild(script);
+    }
+
+    function closeModal() {
+      document.getElementById('emulator-modal').classList.remove('open');
+      document.getElementById('emulator-container').innerHTML = '';
+      // Remove any injected emulator scripts
+      document.querySelectorAll('script[src*="emulatorjs"]').forEach(s => s.remove());
+      window.EJS_player = undefined;
+    }
+
+    // Close on overlay click
+    document.getElementById('emulator-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+  </script>
+</body>
+</html>
